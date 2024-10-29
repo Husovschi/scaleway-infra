@@ -11,7 +11,10 @@ pipeline {
         stage('Init') {
             steps {
                 script {
-                    withCredentials([[$class: 'VaultUsernamePasswordCredentialBinding', credentialsId: 'vault-scw', passwordVariable: 'SCW_SECRET_ACCESS_KEY', usernameVariable: 'SCW_ACCESS_KEY_ID']]) {
+                    withCredentials([
+                        [$class: 'VaultUsernamePasswordCredentialBinding', credentialsId: 'vault-scw', passwordVariable: 'AWS_SECRET_ACCESS_KEY', usernameVariable: 'AWS_ACCESS_KEY_ID'],
+                        [$class: 'VaultStringCredentialBinding', credentialsId: 'vault-swc-project-id', variable: 'SCW_DEFAULT_PROJECT_ID']
+                    ]) {
                         sh 'terraform init'
                     }
                 }
@@ -20,8 +23,15 @@ pipeline {
         stage('Plan') {
             steps {
                 script {
-                    withCredentials([[$class: 'VaultUsernamePasswordCredentialBinding', credentialsId: 'vault-scw', passwordVariable: 'SCW_SECRET_ACCESS_KEY', usernameVariable: 'SCW_ACCESS_KEY_ID']]) {
-                        sh 'terraform plan -no-color -out=tfplan'
+                    withCredentials([
+                        [$class: 'VaultUsernamePasswordCredentialBinding', credentialsId: 'vault-scw', passwordVariable: 'SCW_SECRET_KEY', usernameVariable: 'SCW_ACCESS_KEY'],
+                        [$class: 'VaultStringCredentialBinding', credentialsId: 'vault-swc-project-id', variable: 'SCW_DEFAULT_PROJECT_ID']
+                    ]) {
+                        sh '''
+                        export AWS_ACCESS_KEY_ID=$SCW_ACCESS_KEY
+                        export AWS_SECRET_ACCESS_KEY=$SCW_SECRET_KEY
+                        terraform plan -no-color -out=tfplan
+                        '''
                     }
                 }
             }
@@ -47,8 +57,15 @@ pipeline {
                 }
             }
             steps {
-                withCredentials([[$class: 'VaultUsernamePasswordCredentialBinding', credentialsId: 'vault-scw', passwordVariable: 'SCW_SECRET_ACCESS_KEY', usernameVariable: 'SCW_ACCESS_KEY_ID']]) {
-                    sh 'terraform ' + params.Command + ' -no-color -auto-approve'
+                withCredentials([
+                    [$class: 'VaultUsernamePasswordCredentialBinding', credentialsId: 'vault-scw', passwordVariable: 'SCW_SECRET_KEY', usernameVariable: 'SCW_ACCESS_KEY'],
+                    [$class: 'VaultStringCredentialBinding', credentialsId: 'vault-swc-project-id', variable: 'SCW_DEFAULT_PROJECT_ID']
+                ]) {
+                        sh '''
+                        export AWS_ACCESS_KEY_ID=$SCW_ACCESS_KEY_ID
+                        export AWS_SECRET_ACCESS_KEY=$SCW_SECRET_ACCESS_KEY
+                        terraform ${params.Command} -no-color -auto-approve
+                        '''
                 }
             }
         }
